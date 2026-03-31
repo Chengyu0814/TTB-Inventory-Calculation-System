@@ -56,8 +56,22 @@ async def process_excel(file: UploadFile = File(...)):
         vol_col = f"{month_str}銷售量"
         amt_col = f"{month_str}銷售額"
 
-        # 讀取 Excel（套用 dtype 確保 SKU No 不會掉前導零）
-        df_mar = pd.read_excel(file_stream, dtype={"SKU no": str})
+        # 先利用 pd.ExcelFile 解析檔案工作表資訊
+        excel_file = pd.ExcelFile(file_stream)
+        sheet_names = excel_file.sheet_names
+        
+        # 決定要讀取哪一個工作表
+        if len(sheet_names) == 1:
+            target_sheet = sheet_names[0]
+        else:
+            # 有兩個以上的工作表時，尋找 'details'
+            if "details" in sheet_names:
+                target_sheet = "details"
+            else:
+                raise ValueError("檔案包含多個工作表，但找不到名為 'details' 的工作表")
+                
+        # 讀取指定的工作表（套用 dtype 確保 SKU No 不會掉前導零）
+        df_mar = pd.read_excel(excel_file, sheet_name=target_sheet, dtype={"SKU no": str})
 
         # --- 以下為使用者的資料處理邏輯 --- 
         df_mar = df_mar[["SKU no", "SKU title", "Volume", "Amount"]]
