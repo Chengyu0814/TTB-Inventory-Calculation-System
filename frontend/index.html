@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>計算機 | Calculator App</title>
+    <meta name="description" content="前後端分離計算機，由 FastAPI 驅動。支援四則運算、次方與餘數計算。" />
+    <link rel="stylesheet" href="style.css" />
+
+    <!--
+      ⚙️ Zeabur 部署設定：
+      把下方 YOUR_BACKEND_DOMAIN 換成你在 Zeabur 後端服務的 domain，例如：
+      https://calculator-api.zeabur.app
+    -->
+    <!-- <script>window.CALCULATOR_API_URL = "https://YOUR_BACKEND_DOMAIN";</script> -->
+  </head>
+  <body>
+    <div class="page-title">
+      <h1>⚡ <span>計算機</span></h1>
+      <p>由 FastAPI 驅動 · 部署於 Zeabur</p>
+    </div>
+
+    <div class="calculator-card">
+      <!-- API 狀態列 -->
+      <div class="api-status">
+        <div class="status-dot" id="status-dot"></div>
+        <span id="status-text">連線中…</span>
+      </div>
+
+      <!-- 顯示區域 -->
+      <div class="display">
+        <div id="expression-display"></div>
+        <div id="result-display">0</div>
+      </div>
+
+      <!-- 按鈕區 -->
+      <div class="btn-grid">
+        <!-- Row 1 -->
+        <button id="btn-clear"     class="btn btn-clear btn-wide"     onclick="handleClear()">AC</button>
+        <button id="btn-backspace" class="btn btn-backspace"           onclick="handleBackspace()">⌫</button>
+        <button id="btn-percent"   class="btn btn-operator"            onclick="handleInput('%')">%</button>
+
+        <!-- Row 2 -->
+        <button id="btn-7"  class="btn btn-number"   onclick="handleInput('7')">7</button>
+        <button id="btn-8"  class="btn btn-number"   onclick="handleInput('8')">8</button>
+        <button id="btn-9"  class="btn btn-number"   onclick="handleInput('9')">9</button>
+        <button id="btn-div" class="btn btn-operator" onclick="handleInput('÷')">÷</button>
+
+        <!-- Row 3 -->
+        <button id="btn-4"   class="btn btn-number"   onclick="handleInput('4')">4</button>
+        <button id="btn-5"   class="btn btn-number"   onclick="handleInput('5')">5</button>
+        <button id="btn-6"   class="btn btn-number"   onclick="handleInput('6')">6</button>
+        <button id="btn-mul" class="btn btn-operator"  onclick="handleInput('×')">×</button>
+
+        <!-- Row 4 -->
+        <button id="btn-1"   class="btn btn-number"   onclick="handleInput('1')">1</button>
+        <button id="btn-2"   class="btn btn-number"   onclick="handleInput('2')">2</button>
+        <button id="btn-3"   class="btn btn-number"   onclick="handleInput('3')">3</button>
+        <button id="btn-sub" class="btn btn-operator"  onclick="handleInput('-')">−</button>
+
+        <!-- Row 5 -->
+        <button id="btn-lparen" class="btn btn-operator" onclick="handleInput('(')"> ( </button>
+        <button id="btn-0"      class="btn btn-number"   onclick="handleInput('0')">0</button>
+        <button id="btn-dot"    class="btn btn-number"   onclick="handleDecimal()">.</button>
+        <button id="btn-add"    class="btn btn-operator"  onclick="handleInput('+')">+</button>
+
+        <!-- Row 6 -->
+        <button id="btn-pow"    class="btn btn-operator"  onclick="handleInput('**')">xʸ</button>
+        <button id="btn-rparen" class="btn btn-operator"  onclick="handleInput(')')"> ) </button>
+        <button id="btn-equals" class="btn btn-equals btn-wide" onclick="calculate()">
+          <span class="btn-label">=</span>
+          <div class="spinner"></div>
+        </button>
+      </div>
+    </div>
+
+    <footer class="footer">支援鍵盤輸入 · Enter 計算 · Esc 清除</footer>
+
+    <script src="app.js"></script>
+  </body>
+</html>
