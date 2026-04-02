@@ -164,15 +164,10 @@ async def process_excel(
         result = result[["SKU No.", "品名"] + vol_cols + amt_cols]
 
     # ── 處理在途庫存 ──────────────────────────────────────────
+    df_inv = None
     if has_inventory:
         df_inv = await process_inventory(inventory_file)
-
-        if result is not None:
-            # 與銷售資料合併，品名優先使用銷售側的值
-            result = result.merge(df_inv[["SKU No.", "在途庫存"]], on="SKU No.", how="left")
-            result = result[result.columns.tolist()]
-        else:
-            # 只有在途庫存
+        if result is None:
             result = df_inv[["SKU No.", "品名", "在途庫存"]]
 
     # ── 輸出 ──────────────────────────────────────────────────
@@ -183,7 +178,13 @@ async def process_excel(
         out_filename = "TTW inventory.xlsx"
 
     output_stream = io.BytesIO()
-    result.to_excel(output_stream, index=False)
+    with pd.ExcelWriter(output_stream, engine="openpyxl") as writer:
+        if has_sales:
+            result.to_excel(writer, sheet_name="銷售明細", index=False)
+        if df_inv is not None:
+            df_inv[["SKU No.", "品名", "在途庫存"]].to_excel(writer, sheet_name="在途庫存", index=False)
+        if not has_sales and df_inv is None:
+            result.to_excel(writer, sheet_name="Sheet1", index=False)
     output_stream.seek(0)
 
     return StreamingResponse(
