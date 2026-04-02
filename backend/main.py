@@ -1,5 +1,5 @@
 import io
-from typing import List
+from typing import List, Optional
 from functools import reduce
 
 import pandas as pd
@@ -37,16 +37,49 @@ MONTH_ORDER = [
 MONTH_NUM = {v: k for k, v in MONTH_NAMES.items()}
 
 
+async def process_inventory(file: UploadFile) -> pd.DataFrame:
+    """處理採購未交量檔案，回傳 SKU No. + 在途庫存 的 DataFrame"""
+    contents = await file.read()
+    try:
+        df = pd.read_excel(io.BytesIO(contents), header=3, dtype={"品    號": str})
+        df = df[["品    號", "品   名", "未交數量", "交貨庫"]].rename(columns={
+            "品    號": "SKU No.",
+            "品   名": "品名",
+            "未交數量": "在途庫存"
+        })
+    except KeyError as e:
+        raise HTTPException(status_code=400, detail=f"在途庫存檔案缺少必要欄位：{str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"讀取在途庫存檔案失敗: {str(e)}")
+
+    df["SKU No."] = df["SKU No."].astype(str).str.zfill(5)
+    df = df.dropna(subset=["SKU No."])
+    # 刪除 SKU No. 包含中文字的資料列
+    df = df[~df["SKU No."].str.contains(r'[\u4e00-\u9fff]', regex=True)]
+    # 只保留交貨庫為華膳-IT
+    df = df[df["交貨庫"] == "華膳-IT"]
+    # 只保留 SKU No. 以 A 結尾的列
+    df = df[df["SKU No."].str.endswith("A", na=False)]
+    # 去除尾端的 A，取前 5 碼
+    df["SKU No."] = df["SKU No."].str.extract(r'(.{5})A$', expand=False)
+    df["SKU No."] = df["SKU No."].astype(str).str.strip()
+
+    df_res = df.groupby("SKU No.", as_index=False).agg({
+        "在途庫存": "sum"
+    })
+    return df_res[["SKU No.", "在途庫存"]]
+
 
 @app.post("/process-excel")
 async def process_excel(
     files: List[UploadFile] = File(...),
-    months: List[str] = Form(...)
+    months: List[str] = Form(...),
+    inventory_file: Optional[UploadFile] = File(None)
 ):
     """
-    接收一或多個月份的 Excel 銷售明細，各自加總後 outer join，
+    接收一或多個月份的 Excel 銷售明細，各自加總後 outer join。
+    可選傳入採購未交量檔案，合併在途庫存欄位。
     回傳 TTW sales summary MM-MM.xlsx。
-    months: 與 files 對應的月份編號清單，如 ["01", "03"]
     """
     if not files:
         raise HTTPException(status_code=400, detail="請至少上傳一個檔案")
@@ -125,7 +158,15 @@ async def process_excel(
     present_months = [m for m in MONTH_ORDER if f"{m}銷售量" in result.columns]
     vol_cols = [f"{m}銷售量" for m in present_months]
     amt_cols = [f"{m}銷售額" for m in present_months]
-    result = result[["SKU No.", "品名"] + vol_cols + amt_cols]
+    final_cols = ["SKU No.", "品名"] + vol_cols + amt_cols
+
+    # 合併在途庫存（若有上傳）
+    if inventory_file and inventory_file.filename:
+        df_inv = await process_inventory(inventory_file)
+        result = result.merge(df_inv, on="SKU No.", how="left")
+        final_cols.append("在途庫存")
+
+    result = result[final_cols]
 
     # 輸出檔名
     month_nums = [MONTH_NUM[m] for m in present_months]

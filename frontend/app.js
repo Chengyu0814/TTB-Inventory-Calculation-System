@@ -7,6 +7,7 @@ const API_URL = window.CALCULATOR_API_URL || "http://localhost:8000";
 // 狀態
 // ====================================================
 const assignedFiles = {}; // { "01": File, "03": File, ... }
+let inventoryFile = null;
 
 const statusDot = document.getElementById("status-dot");
 const statusText = document.getElementById("status-text");
@@ -121,6 +122,62 @@ function updateButton() {
 }
 
 // ====================================================
+// 在途庫存上傳
+// ====================================================
+const inventoryDrop = document.getElementById("inventory-drop");
+const inventoryInput = document.getElementById("inventory-input");
+const invText = document.getElementById("inv-text");
+const invRemove = document.getElementById("inv-remove");
+
+inventoryDrop.addEventListener("click", (e) => {
+  if (!e.target.classList.contains("inv-remove")) inventoryInput.click();
+});
+
+inventoryInput.addEventListener("change", function () {
+  if (this.files[0]) setInventoryFile(this.files[0]);
+  this.value = "";
+});
+
+inventoryDrop.addEventListener("dragover", (e) => {
+  e.preventDefault();
+  inventoryDrop.classList.add("dragover");
+});
+
+inventoryDrop.addEventListener("dragleave", () => {
+  inventoryDrop.classList.remove("dragover");
+});
+
+inventoryDrop.addEventListener("drop", (e) => {
+  e.preventDefault();
+  inventoryDrop.classList.remove("dragover");
+  const file = e.dataTransfer.files[0];
+  if (file) {
+    if (!file.name.match(/\.(xlsx|xls)$/i)) {
+      alert("請上傳 Excel 檔案 (.xlsx 或 .xls)");
+      return;
+    }
+    setInventoryFile(file);
+  }
+});
+
+function setInventoryFile(file) {
+  inventoryFile = file;
+  inventoryDrop.classList.add("assigned");
+  const name = file.name.length > 30 ? file.name.slice(0, 28) + "…" : file.name;
+  invText.textContent = name;
+  invText.title = file.name;
+  invRemove.style.display = "";
+}
+
+function removeInventoryFile() {
+  inventoryFile = null;
+  inventoryDrop.classList.remove("assigned");
+  invText.textContent = "點擊或拖曳採購未交量 Excel 檔案";
+  invText.title = "";
+  invRemove.style.display = "none";
+}
+
+// ====================================================
 // API 呼叫
 // ====================================================
 async function processFile() {
@@ -135,6 +192,10 @@ async function processFile() {
     formData.append("files", file);
     formData.append("months", month);
   });
+
+  if (inventoryFile) {
+    formData.append("inventory_file", inventoryFile);
+  }
 
   try {
     const response = await fetch(`${API_URL}/process-excel`, {

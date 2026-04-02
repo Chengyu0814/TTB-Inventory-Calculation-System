@@ -37,6 +37,17 @@
         <div class="month-slot" data-month="12"><input type="file" class="slot-input" accept=".xlsx,.xls" hidden><div class="month-label">十二月</div><span class="slot-plus">+</span></div>
       </div>
 
+      <!-- 在途庫存上傳（選填） -->
+      <div class="inventory-section">
+        <div class="section-label">在途庫存（選填）</div>
+        <div class="inventory-drop" id="inventory-drop">
+          <input type="file" id="inventory-input" accept=".xlsx,.xls" hidden>
+          <span class="inv-icon">📦</span>
+          <span class="inv-text" id="inv-text">點擊或拖曳採購未交量 Excel 檔案</span>
+          <span class="inv-remove" id="inv-remove" style="display:none;" onclick="removeInventoryFile()">×</span>
+        </div>
+      </div>
+
       <!-- 操作按鈕 -->
       <button id="btn-process" class="btn btn-equals btn-wide" disabled onclick="processFile()">
         <span class="btn-label">產生並下載報表</span>

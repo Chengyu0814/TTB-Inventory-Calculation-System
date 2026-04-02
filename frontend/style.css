@@ -304,6 +304,77 @@ body::after {
 }
 
 /* ===================================
+   Inventory Upload
+   =================================== */
+
+.inventory-section {
+  margin-bottom: 16px;
+}
+
+.section-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 7px;
+  letter-spacing: 0.02em;
+}
+
+.inventory-drop {
+  border: 2px dashed rgba(245, 158, 11, 0.4);
+  border-radius: 12px;
+  padding: 11px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.inventory-drop:hover {
+  border-color: rgba(245, 158, 11, 0.8);
+  background: rgba(245, 158, 11, 0.05);
+}
+
+.inventory-drop.dragover {
+  border-color: #f59e0b;
+  background: rgba(245, 158, 11, 0.12);
+}
+
+.inventory-drop.assigned {
+  border-style: solid;
+  border-color: rgba(34, 197, 94, 0.5);
+  background: rgba(34, 197, 94, 0.06);
+}
+
+.inv-icon {
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+.inv-text {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  flex: 1;
+}
+
+.inventory-drop.assigned .inv-text {
+  color: #86efac;
+}
+
+.inv-remove {
+  flex-shrink: 0;
+  font-size: 0.85rem;
+  color: rgba(239, 68, 68, 0.6);
+  cursor: pointer;
+  padding: 0 2px;
+  transition: color 0.15s ease;
+}
+
+.inv-remove:hover {
+  color: #ef4444;
+}
+
+/* ===================================
    File List (legacy, kept for reference)
    =================================== */
 
