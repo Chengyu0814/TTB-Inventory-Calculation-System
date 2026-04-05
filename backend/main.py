@@ -68,6 +68,29 @@ async def process_inventory(file: UploadFile) -> pd.DataFrame:
     return df_res[["SKU No.", "品名", "在途庫存"]]
 
 
+async def process_import(file: UploadFile) -> pd.DataFrame:
+    """處理 進貨明細 檔案，回傳 SKU No. + 品名 + 本月進貨 的 DataFrame"""
+    contents = await file.read()
+    try:
+        df = pd.read_excel(io.BytesIO(contents), header=3, dtype={"品號": str})
+        df = df[["品號", "品名", "驗收數量", "庫別"]].rename(columns={"品號": "SKU No.", "驗收數量": "本月進貨"})
+    except KeyError as e:
+        raise HTTPException(status_code=400, detail=f"本月進貨檔案缺少必要欄位：{str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"讀取本月進貨檔案失敗: {str(e)}")
+
+    df["SKU No."] = df["SKU No."].astype(str).str.zfill(5)
+    df = df[df["庫別"] == "華膳-IT"]
+    df = df[df["SKU No."].str.endswith("A", na=False)]
+    df["SKU No."] = df["SKU No."].str.extract(r'(.{5})A$', expand=False)
+    df["SKU No."] = df["SKU No."].astype(str).str.strip()
+
+    df_grouped = df.groupby("SKU No.")["本月進貨"].sum().reset_index()
+    names = df.drop_duplicates(subset=["SKU No."], keep="first")[["SKU No.", "品名"]]
+    df_res = df_grouped.merge(names, on="SKU No.", how="left")
+    return df_res[["SKU No.", "品名", "本月進貨"]]
+
+
 async def process_stock(file: UploadFile) -> pd.DataFrame:
     """處理 期末存量 檔案，回傳 SKU No. + 品名 + 期末存量 的 DataFrame"""
     contents = await file.read()
@@ -125,19 +148,21 @@ async def process_excel(
     onboard_normal_file: Optional[UploadFile] = File(None),
     onboard_fly_file: Optional[UploadFile] = File(None),
     stock_file: Optional[UploadFile] = File(None),
+    import_file: Optional[UploadFile] = File(None),
 ):
     has_sales = bool(files and any(f.filename for f in files))
     has_inventory = bool(inventory_file and inventory_file.filename)
     has_onboard_normal = bool(onboard_normal_file and onboard_normal_file.filename)
     has_onboard_fly = bool(onboard_fly_file and onboard_fly_file.filename)
     has_stock = bool(stock_file and stock_file.filename)
+    has_import = bool(import_file and import_file.filename)
 
     if has_onboard_normal != has_onboard_fly:
         raise HTTPException(status_code=400, detail="一般航線與串飛航線檔案須同時上傳")
 
     has_onboard = has_onboard_normal and has_onboard_fly
 
-    if not has_sales and not has_inventory and not has_onboard and not has_stock:
+    if not has_sales and not has_inventory and not has_onboard and not has_stock and not has_import:
         raise HTTPException(status_code=400, detail="請至少上傳一個檔案")
 
     result = None
@@ -239,6 +264,13 @@ async def process_excel(
         if result is None:
             result = df_stock
 
+    # ── 處理本月進貨 ──────────────────────────────────────────
+    df_import = None
+    if has_import:
+        df_import = await process_import(import_file)
+        if result is None:
+            result = df_import
+
     # ── 輸出 ──────────────────────────────────────────────────
     if present_months:
         month_nums = [MONTH_NUM[m] for m in present_months]
@@ -256,7 +288,9 @@ async def process_excel(
             df_onboard.to_excel(writer, sheet_name="機上量", index=False)
         if df_stock is not None:
             df_stock.to_excel(writer, sheet_name="期末存量", index=False)
-        if not has_sales and df_inv is None and df_onboard is None and df_stock is None:
+        if df_import is not None:
+            df_import.to_excel(writer, sheet_name="本月進貨", index=False)
+        if not has_sales and df_inv is None and df_onboard is None and df_stock is None and df_import is None:
             result.to_excel(writer, sheet_name="Sheet1", index=False)
 
     output_stream.seek(0)

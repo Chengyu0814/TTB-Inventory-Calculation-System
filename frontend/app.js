@@ -11,6 +11,7 @@ let inventoryFile = null;
 let onboardNormalFile = null;
 let onboardFlyFile = null;
 let stockFile = null;
+let importFile = null;
 
 const statusDot = document.getElementById("status-dot");
 const statusText = document.getElementById("status-text");
@@ -118,7 +119,8 @@ function updateButton() {
   const hasInventory = inventoryFile !== null;
   const hasOnboard = onboardNormalFile !== null && onboardFlyFile !== null;
   const hasStock = stockFile !== null;
-  const hasAny = salesCount > 0 || hasInventory || onboardNormalFile !== null || onboardFlyFile !== null || hasStock;
+  const hasImport = importFile !== null;
+  const hasAny = salesCount > 0 || hasInventory || onboardNormalFile !== null || onboardFlyFile !== null || hasStock || hasImport;
   btnProcess.disabled = !hasAny;
 
   const parts = [];
@@ -130,6 +132,7 @@ function updateButton() {
   if (hasOnboard) parts.push("機上量");
   else if (onboardNormalFile || onboardFlyFile) parts.push("機上量（需同時上傳兩個檔案）");
   if (hasStock) parts.push("期末存量");
+  if (hasImport) parts.push("本月進貨");
 
   if (parts.length > 0) {
     setStatus("online", `已選取：${parts.join("、")}`);
@@ -336,11 +339,69 @@ function removeStockFile() {
 }
 
 // ====================================================
+// 本月進貨上傳
+// ====================================================
+const importDrop = document.getElementById("import-drop");
+const importInput = document.getElementById("import-input");
+const importText = document.getElementById("import-text");
+const importRemove = document.getElementById("import-remove");
+
+importDrop.addEventListener("click", (e) => {
+  if (!e.target.classList.contains("inv-remove")) importInput.click();
+});
+
+importInput.addEventListener("change", function () {
+  if (this.files[0]) setImportFile(this.files[0]);
+  this.value = "";
+});
+
+importDrop.addEventListener("dragover", (e) => {
+  e.preventDefault();
+  importDrop.classList.add("dragover");
+});
+
+importDrop.addEventListener("dragleave", () => {
+  importDrop.classList.remove("dragover");
+});
+
+importDrop.addEventListener("drop", (e) => {
+  e.preventDefault();
+  importDrop.classList.remove("dragover");
+  const file = e.dataTransfer.files[0];
+  if (file) {
+    if (!file.name.match(/\.(xlsx|xls)$/i)) {
+      alert("請上傳 Excel 檔案 (.xlsx 或 .xls)");
+      return;
+    }
+    setImportFile(file);
+  }
+});
+
+function setImportFile(file) {
+  importFile = file;
+  importDrop.classList.add("assigned");
+  const name = file.name.length > 30 ? file.name.slice(0, 28) + "…" : file.name;
+  importText.textContent = name;
+  importText.title = file.name;
+  importRemove.style.display = "";
+  updateButton();
+}
+
+function removeImportFile() {
+  importFile = null;
+  importDrop.classList.remove("assigned");
+  importText.textContent = "選擇進貨明細 Excel 檔案";
+  importText.title = "";
+  importRemove.style.display = "none";
+  updateButton();
+}
+
+// ====================================================
 // API 呼叫
 // ====================================================
 async function processFile() {
   const entries = Object.entries(assignedFiles).sort(([a], [b]) => a.localeCompare(b));
-  if (entries.length === 0 && !inventoryFile && !onboardNormalFile && !onboardFlyFile && !stockFile) return;
+  if (entries.length === 0 && !inventoryFile && !onboardNormalFile && !onboardFlyFile && !stockFile && !importFile) return;
 
   setLoading(true);
   setStatus("loading", "處理中，請稍候…");
@@ -366,6 +427,10 @@ async function processFile() {
 
   if (stockFile) {
     formData.append("stock_file", stockFile);
+  }
+
+  if (importFile) {
+    formData.append("import_file", importFile);
   }
 
   try {

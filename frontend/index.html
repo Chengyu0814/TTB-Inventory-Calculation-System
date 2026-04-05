@@ -81,6 +81,17 @@
         </div>
       </div>
 
+      <!-- 本月進貨 section -->
+      <div class="data-section">
+        <div class="section-label">本月進貨</div>
+        <div class="inventory-drop" id="import-drop">
+          <input type="file" id="import-input" accept=".xlsx,.xls" hidden>
+          <span class="inv-icon">🚚</span>
+          <span class="inv-text" id="import-text">選擇進貨明細 Excel 檔案</span>
+          <span class="inv-remove" id="import-remove" style="display:none;" onclick="removeImportFile()">×</span>
+        </div>
+      </div>
+
       <!-- 操作按鈕 -->
       <button id="btn-process" class="btn btn-equals btn-wide" disabled onclick="processFile()">
         <span class="btn-label">產生並下載報表</span>
