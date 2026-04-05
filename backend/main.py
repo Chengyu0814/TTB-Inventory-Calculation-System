@@ -167,7 +167,7 @@ async def process_onboard(normal_file: UploadFile, fly_file: UploadFile) -> pd.D
     return df_merged[["SKU No.", "品名", "機上量"]]
 
 
-@app.post("/scan-cost-currencies")
+@app.post("/scan-cost-currencies") #處理幣別，匯率轉換
 async def scan_cost_currencies(cost_file: UploadFile = File(...)):
     contents = await cost_file.read()
     try:
@@ -331,6 +331,50 @@ async def process_excel(
         if result is None:
             result = df_cost
 
+    # ── 合併為單一工作表 ──────────────────────────────────────────
+    # 收集各來源品名，優先順序：銷售明細 > 在途庫存 > 機上量 > 期末存量 > 本月進貨 > 商品成本
+    name_sources = []
+    for df_n in (([result] if has_sales and result is not None else []) +
+                 [df_inv, df_onboard, df_stock, df_import, df_cost]):
+        if df_n is not None and "品名" in df_n.columns:
+            name_sources.append(df_n[["SKU No.", "品名"]].dropna(subset=["品名"]))
+    all_names = (pd.concat(name_sources).drop_duplicates(subset=["SKU No."], keep="first")
+                 if name_sources else pd.DataFrame(columns=["SKU No.", "品名"]))
+
+    def drop_name(df):
+        return df.drop(columns=["品名"], errors="ignore")
+
+    # Outer join: 銷售明細、在途庫存、機上量、期末存量、本月進貨
+    base_dfs = []
+    if has_sales and result is not None:
+        base_dfs.append(drop_name(result))
+    if df_inv is not None:
+        base_dfs.append(drop_name(df_inv[["SKU No.", "品名", "在途庫存"]]))
+    if df_onboard is not None:
+        base_dfs.append(drop_name(df_onboard))
+    if df_stock is not None:
+        base_dfs.append(drop_name(df_stock))
+    if df_import is not None:
+        base_dfs.append(drop_name(df_import))
+
+    if base_dfs:
+        merged = reduce(lambda l, r: l.merge(r, on="SKU No.", how="outer"), base_dfs)
+        # Left join: 商品成本
+        if df_cost is not None:
+            merged = merged.merge(drop_name(df_cost), on="SKU No.", how="left")
+    else:
+        # 只有商品成本
+        merged = drop_name(df_cost) if df_cost is not None else pd.DataFrame(columns=["SKU No."])
+
+    # 加回品名
+    merged = merged.merge(all_names, on="SKU No.", how="left")
+
+    # 欄位排序：SKU No., 品名, TWD成本, 機上量, {月}銷售量/額, 期末存量, 本月進貨, 在途庫存
+    sales_cols = [c for c in merged.columns if "銷售量" in c or "銷售額" in c]
+    ordered = ["SKU No.", "品名", "TWD成本", "機上量"] + sales_cols + ["期末存量", "本月進貨", "在途庫存"]
+    final_cols = [c for c in ordered if c in merged.columns]
+    merged = merged[final_cols]
+
     # ── 輸出 ──────────────────────────────────────────────────
     if present_months:
         month_nums = [MONTH_NUM[m] for m in present_months]
@@ -340,20 +384,7 @@ async def process_excel(
 
     output_stream = io.BytesIO()
     with pd.ExcelWriter(output_stream, engine="openpyxl") as writer:
-        if has_sales:
-            result.to_excel(writer, sheet_name="銷售明細", index=False)
-        if df_inv is not None:
-            df_inv[["SKU No.", "品名", "在途庫存"]].to_excel(writer, sheet_name="在途庫存", index=False)
-        if df_onboard is not None:
-            df_onboard.to_excel(writer, sheet_name="機上量", index=False)
-        if df_stock is not None:
-            df_stock.to_excel(writer, sheet_name="期末存量", index=False)
-        if df_import is not None:
-            df_import.to_excel(writer, sheet_name="本月進貨", index=False)
-        if df_cost is not None:
-            df_cost.to_excel(writer, sheet_name="商品成本", index=False)
-        if not has_sales and df_inv is None and df_onboard is None and df_stock is None and df_import is None and df_cost is None:
-            result.to_excel(writer, sheet_name="Sheet1", index=False)
+        merged.to_excel(writer, sheet_name="報表", index=False)
 
     output_stream.seek(0)
 
