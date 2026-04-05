@@ -1,4 +1,5 @@
 import io
+from urllib.parse import quote
 from typing import List, Optional
 from functools import reduce
 
@@ -235,7 +236,7 @@ async def process_excel(
         output_stream,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={
-            "Content-Disposition": f'attachment; filename="{out_filename}"',
+            "Content-Disposition": f"attachment; filename*=UTF-8''{quote(out_filename)}",
             "Access-Control-Expose-Headers": "Content-Disposition"
         }
     )
