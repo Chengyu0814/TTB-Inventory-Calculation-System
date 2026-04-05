@@ -4,3 +4,7 @@ __pycache__/
 .env
 .venv
 venv/
+
+# 資料檔
+*.xlsx
+*.xls
