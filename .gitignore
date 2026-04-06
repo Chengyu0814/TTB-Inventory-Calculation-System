@@ -5,6 +5,12 @@ __pycache__/
 .venv
 venv/
 
-# 資料檔
+# 資料檔（Example Data 資料夾除外）
 *.xlsx
 *.xls
+!Example Data/*.xlsx
+!Example Data/*.xls
+!Example Data/*.XLSX
+!Example Data/*.XLS
+
+preporcess.py
