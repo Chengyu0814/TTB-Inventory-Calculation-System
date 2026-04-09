@@ -40,6 +40,31 @@ MONTH_ORDER = [
 
 MONTH_NUM = {v: k for k, v in MONTH_NAMES.items()}
 
+CAL_SALE_SHEETS      = ['TPEKNCP', 'TSAKNCI', 'KHHKNCI', 'RMQKNCI']
+CAL_INVENTORY_SHEETS = ['TPEKSCI', 'TPEKNCP', 'TSAKNCI', 'KHHKNCI', 'RMQKNCI']
+
+
+def process_cal_sheets(file_bytes: bytes, sheet_list: list, source_col: str, filename: str) -> pd.DataFrame:
+    """讀取指定 sheets，各取 PART_NO + source_col，合併並加總"""
+    dfs = {}
+    for sheet in sheet_list:
+        try:
+            df = pd.read_excel(io.BytesIO(file_bytes), sheet_name=sheet, engine='openpyxl')
+            dfs[sheet] = df[['PART_NO', source_col]].rename(columns={source_col: f'{sheet}_QTY'})
+        except KeyError as e:
+            raise HTTPException(status_code=400, detail=f"'{filename}' 的 sheet '{sheet}' 缺少欄位：{str(e)}")
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"讀取 '{filename}' 的 sheet '{sheet}' 失敗：{str(e)}")
+
+    df_merged = dfs[sheet_list[0]]
+    for sheet in sheet_list[1:]:
+        df_merged = df_merged.merge(dfs[sheet], on='PART_NO', how='outer')
+
+    qty_cols = [f'{sheet}_QTY' for sheet in sheet_list]
+    df_merged[qty_cols] = df_merged[qty_cols].fillna(0).astype(int)
+    df_merged['Total'] = df_merged[qty_cols].sum(axis=1)
+    return df_merged
+
 
 async def process_inventory(file: UploadFile) -> pd.DataFrame:
     """處理 採購未交量 檔案，回傳 SKU No. + 品名 + 在途庫存 的 DataFrame"""
@@ -531,6 +556,85 @@ async def process_excel(
         with pd.ExcelWriter(output_stream, engine="openpyxl") as writer:
             merged.to_excel(writer, sheet_name="報表", index=False)
 
+    output_stream.seek(0)
+
+    return StreamingResponse(
+        output_stream,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": f"attachment; filename*=UTF-8''{quote(out_filename)}",
+            "Access-Control-Expose-Headers": "Content-Disposition"
+        }
+    )
+
+
+@app.post("/cal/process-excel")
+async def cal_process_excel(
+    files: List[UploadFile] = File(...),
+    months: List[str] = Form(...),
+):
+    if len(files) != len(months):
+        raise HTTPException(status_code=400, detail="files 與 months 數量不符")
+
+    month_dfs = []
+    present_months = []
+
+    for file, month_str in zip(files, months):
+        month_name = MONTH_NAMES.get(month_str)
+        if not month_name:
+            raise HTTPException(status_code=400, detail=f"無效的月份：{month_str}")
+
+        contents = await file.read()
+
+        df_inv  = process_cal_sheets(contents, CAL_INVENTORY_SHEETS, 'END_TTL_QTY', file.filename)
+        df_sale = process_cal_sheets(contents, CAL_SALE_SHEETS,      'CS_QTY',      file.filename)
+
+        # 合併庫存與銷售，重疊欄位加後綴
+        df_month = df_inv.merge(df_sale, on='PART_NO', how='outer', suffixes=('_庫存', '_銷售'))
+        df_month = df_month.fillna(0)
+
+        # 整理欄位名稱：_QTY_庫存 → _庫存、_QTY（只在庫存）→ _庫存、Total_庫存 → 庫存合計
+        col_rename = {}
+        for col in df_month.columns:
+            if col == 'PART_NO':
+                continue
+            new = col
+            new = new.replace('_QTY_庫存', '_庫存')
+            new = new.replace('_QTY_銷售', '_銷售')
+            new = new.replace('_QTY',     '_庫存')   # TPEKSCI_QTY（只出現在庫存）
+            new = new.replace('Total_庫存', '庫存合計')
+            new = new.replace('Total_銷售', '銷售合計')
+            col_rename[col] = new
+        df_month = df_month.rename(columns=col_rename)
+
+        # 數值欄位轉 int，再加月份前綴
+        num_cols = [c for c in df_month.columns if c != 'PART_NO']
+        df_month[num_cols] = df_month[num_cols].astype(int)
+        df_month = df_month.rename(columns={c: f'{month_name}_{c}' for c in num_cols})
+
+        month_dfs.append(df_month)
+        present_months.append(month_name)
+
+    # 所有月份以 PART_NO outer join 合併成一張表
+    merged = reduce(lambda l, r: l.merge(r, on='PART_NO', how='outer'), month_dfs)
+    merged = merged.fillna(0)
+
+    # 轉 int、去除空白 PART_NO、排序
+    for col in merged.columns:
+        if col != 'PART_NO':
+            merged[col] = merged[col].astype(int)
+    merged = merged.dropna(subset=['PART_NO'])
+    merged = merged[merged['PART_NO'].astype(str).str.strip() != '']
+    merged = merged.sort_values(by='PART_NO').reset_index(drop=True)
+
+    # 輸出檔名用最新月份
+    present_months_sorted = [m for m in MONTH_ORDER if m in present_months]
+    out_month   = present_months_sorted[-1]
+    out_filename = f'華航庫存計算表({out_month}).xlsx'
+
+    output_stream = io.BytesIO()
+    with pd.ExcelWriter(output_stream, engine='openpyxl') as writer:
+        merged.to_excel(writer, sheet_name='報表', index=False)
     output_stream.seek(0)
 
     return StreamingResponse(

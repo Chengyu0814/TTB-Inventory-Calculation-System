@@ -4,46 +4,9 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>華航庫存計算系統</title>
+    <meta name="description" content="華航庫存計算系統" />
     <link rel="stylesheet" href="style.css" />
-    <style>
-      .coming-soon-card {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 16px;
-        padding: 48px 24px;
-        text-align: center;
-      }
-
-      .coming-soon-icon {
-        font-size: 3.5rem;
-        opacity: 0.7;
-      }
-
-      .coming-soon-title {
-        font-size: 1.1rem;
-        font-weight: 700;
-        color: var(--text-primary);
-      }
-
-      .coming-soon-desc {
-        font-size: 0.8rem;
-        color: var(--text-secondary);
-        line-height: 1.6;
-        max-width: 280px;
-      }
-
-      .badge-coming {
-        font-size: 0.68rem;
-        font-weight: 600;
-        letter-spacing: 0.08em;
-        padding: 4px 14px;
-        border-radius: 20px;
-        background: rgba(37, 99, 235, 0.15);
-        color: #60a5fa;
-        border: 1px solid rgba(37, 99, 235, 0.3);
-      }
-    </style>
+    <script>window.CALCULATOR_API_URL = "https://zeabur-test2.zeabur.app";</script>
   </head>
   <body>
     <div class="page-title">
@@ -51,17 +14,40 @@
       <h1><span>華航庫存計算系統</span></h1>
     </div>
 
-    <div class="calculator-card uploader-card" style="width:420px;">
-      <div class="coming-soon-card">
-        <div class="coming-soon-icon">🚧</div>
-        <div class="badge-coming">即將推出</div>
-        <div class="coming-soon-title">華航系統開發中</div>
-        <div class="coming-soon-desc">
-          華航（CAL）庫存計算系統目前正在建置中，<br>敬請期待。
+    <div class="calculator-card uploader-card">
+      <!-- API 狀態列 -->
+      <div class="api-status">
+        <div class="status-dot" id="status-dot"></div>
+        <span id="status-text">連線中…</span>
+      </div>
+
+      <!-- 銷售 / 庫存月份 -->
+      <div class="data-section">
+        <div class="section-label">月份資料（每格上傳一個月的 Excel）</div>
+        <div class="month-grid" id="month-grid">
+          <div class="month-slot" data-month="01"><input type="file" class="slot-input" accept=".xlsx,.xls" hidden><div class="month-label">一月</div><span class="slot-plus">+</span></div>
+          <div class="month-slot" data-month="02"><input type="file" class="slot-input" accept=".xlsx,.xls" hidden><div class="month-label">二月</div><span class="slot-plus">+</span></div>
+          <div class="month-slot" data-month="03"><input type="file" class="slot-input" accept=".xlsx,.xls" hidden><div class="month-label">三月</div><span class="slot-plus">+</span></div>
+          <div class="month-slot" data-month="04"><input type="file" class="slot-input" accept=".xlsx,.xls" hidden><div class="month-label">四月</div><span class="slot-plus">+</span></div>
+          <div class="month-slot" data-month="05"><input type="file" class="slot-input" accept=".xlsx,.xls" hidden><div class="month-label">五月</div><span class="slot-plus">+</span></div>
+          <div class="month-slot" data-month="06"><input type="file" class="slot-input" accept=".xlsx,.xls" hidden><div class="month-label">六月</div><span class="slot-plus">+</span></div>
+          <div class="month-slot" data-month="07"><input type="file" class="slot-input" accept=".xlsx,.xls" hidden><div class="month-label">七月</div><span class="slot-plus">+</span></div>
+          <div class="month-slot" data-month="08"><input type="file" class="slot-input" accept=".xlsx,.xls" hidden><div class="month-label">八月</div><span class="slot-plus">+</span></div>
+          <div class="month-slot" data-month="09"><input type="file" class="slot-input" accept=".xlsx,.xls" hidden><div class="month-label">九月</div><span class="slot-plus">+</span></div>
+          <div class="month-slot" data-month="10"><input type="file" class="slot-input" accept=".xlsx,.xls" hidden><div class="month-label">十月</div><span class="slot-plus">+</span></div>
+          <div class="month-slot" data-month="11"><input type="file" class="slot-input" accept=".xlsx,.xls" hidden><div class="month-label">十一月</div><span class="slot-plus">+</span></div>
+          <div class="month-slot" data-month="12"><input type="file" class="slot-input" accept=".xlsx,.xls" hidden><div class="month-label">十二月</div><span class="slot-plus">+</span></div>
         </div>
       </div>
+
+      <!-- 操作按鈕 -->
+      <button id="btn-process" class="btn btn-equals btn-wide" disabled onclick="processFile()">
+        <span class="btn-label">產生並下載報表</span>
+        <div class="spinner"></div>
+      </button>
     </div>
 
     <p style="text-align:center;color:var(--text-secondary);font-size:0.85rem;margin-top:1rem;">Create by Peter (Update: 2026/04/09)</p>
+    <script src="cal-app.js"></script>
   </body>
 </html>
