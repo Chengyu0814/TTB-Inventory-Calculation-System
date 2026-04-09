@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TTB 虎航庫存計算系統</title>
+    <meta name="description" content="飛買家銷售明細 Excel 自動計算合併工具" />
+    <link rel="stylesheet" href="style.css" />
+    <script>window.CALCULATOR_API_URL = "https://zeabur-test2.zeabur.app";</script>
+  </head>
+  <body>
+    <div class="page-title">
+      <a href="index.html" class="back-link">← 返回選擇頁</a>
+      <h1><span>TTB 虎航庫存計算系統</span></h1>
+    </div>
+
+    <div class="calculator-card uploader-card">
+      <!-- API 狀態列 -->
+      <div class="api-status">
+        <div class="status-dot" id="status-dot"></div>
+        <span id="status-text">連線中…</span>
+      </div>
+
+      <!-- 銷售明細 section -->
+      <div class="data-section">
+        <div class="section-label">銷售明細</div>
+        <div class="month-grid" id="month-grid">
+          <div class="month-slot" data-month="01"><input type="file" class="slot-input" accept=".xlsx,.xls" hidden><div class="month-label">一月</div><span class="slot-plus">+</span></div>
+          <div class="month-slot" data-month="02"><input type="file" class="slot-input" accept=".xlsx,.xls" hidden><div class="month-label">二月</div><span class="slot-plus">+</span></div>
+          <div class="month-slot" data-month="03"><input type="file" class="slot-input" accept=".xlsx,.xls" hidden><div class="month-label">三月</div><span class="slot-plus">+</span></div>
+          <div class="month-slot" data-month="04"><input type="file" class="slot-input" accept=".xlsx,.xls" hidden><div class="month-label">四月</div><span class="slot-plus">+</span></div>
+          <div class="month-slot" data-month="05"><input type="file" class="slot-input" accept=".xlsx,.xls" hidden><div class="month-label">五月</div><span class="slot-plus">+</span></div>
+          <div class="month-slot" data-month="06"><input type="file" class="slot-input" accept=".xlsx,.xls" hidden><div class="month-label">六月</div><span class="slot-plus">+</span></div>
+          <div class="month-slot" data-month="07"><input type="file" class="slot-input" accept=".xlsx,.xls" hidden><div class="month-label">七月</div><span class="slot-plus">+</span></div>
+          <div class="month-slot" data-month="08"><input type="file" class="slot-input" accept=".xlsx,.xls" hidden><div class="month-label">八月</div><span class="slot-plus">+</span></div>
+          <div class="month-slot" data-month="09"><input type="file" class="slot-input" accept=".xlsx,.xls" hidden><div class="month-label">九月</div><span class="slot-plus">+</span></div>
+          <div class="month-slot" data-month="10"><input type="file" class="slot-input" accept=".xlsx,.xls" hidden><div class="month-label">十月</div><span class="slot-plus">+</span></div>
+          <div class="month-slot" data-month="11"><input type="file" class="slot-input" accept=".xlsx,.xls" hidden><div class="month-label">十一月</div><span class="slot-plus">+</span></div>
+          <div class="month-slot" data-month="12"><input type="file" class="slot-input" accept=".xlsx,.xls" hidden><div class="month-label">十二月</div><span class="slot-plus">+</span></div>
+        </div>
+      </div>
+
+      <!-- 在途庫存 section -->
+      <div class="data-section">
+        <div class="section-label">在途庫存</div>
+        <div class="inventory-drop" id="inventory-drop">
+          <input type="file" id="inventory-input" accept=".xlsx,.xls" hidden>
+          <span class="inv-icon">📦</span>
+          <span class="inv-text" id="inv-text">選擇採購未交量 Excel 檔案</span>
+          <span class="inv-remove" id="inv-remove" style="display:none;" onclick="removeInventoryFile()">×</span>
+        </div>
+      </div>
+
+      <!-- 機上量 section -->
+      <div class="data-section">
+        <div class="section-label">機上量</div>
+        <div class="onboard-row">
+          <label class="inventory-drop" id="onboard-normal-drop">
+            <input type="file" id="onboard-normal-input" accept=".xlsx,.xls" hidden>
+            <span class="inv-icon">✈️</span>
+            <span class="inv-text" id="onboard-normal-text">一般航線</span>
+            <span class="inv-remove" id="onboard-normal-remove" style="display:none;" onclick="event.preventDefault(); removeOnboardFile('normal')">×</span>
+          </label>
+          <label class="inventory-drop" id="onboard-fly-drop">
+            <input type="file" id="onboard-fly-input" accept=".xlsx,.xls" hidden>
+            <span class="inv-icon">✈️</span>
+            <span class="inv-text" id="onboard-fly-text">串飛航線</span>
+            <span class="inv-remove" id="onboard-fly-remove" style="display:none;" onclick="event.preventDefault(); removeOnboardFile('fly')">×</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- 期末存量 section -->
+      <div class="data-section">
+        <div class="section-label">期末存量</div>
+        <div class="inventory-drop" id="stock-drop">
+          <input type="file" id="stock-input" accept=".xlsx,.xls" hidden>
+          <span class="inv-icon">📊</span>
+          <span class="inv-text" id="stock-text">選擇 IT Inventory Excel 檔案</span>
+          <span class="inv-remove" id="stock-remove" style="display:none;" onclick="removeStockFile()">×</span>
+        </div>
+      </div>
+
+      <!-- 本月進貨 section -->
+      <div class="data-section">
+        <div class="section-label">本月進貨</div>
+        <div class="inventory-drop" id="import-drop">
+          <input type="file" id="import-input" accept=".xlsx,.xls" hidden>
+          <span class="inv-icon">🚚</span>
+          <span class="inv-text" id="import-text">選擇進貨明細 Excel 檔案</span>
+          <span class="inv-remove" id="import-remove" style="display:none;" onclick="removeImportFile()">×</span>
+        </div>
+      </div>
+
+      <!-- 商品成本 section -->
+      <div class="data-section">
+        <div class="section-label">商品成本</div>
+        <div class="inventory-drop" id="cost-drop">
+          <input type="file" id="cost-input" accept=".xlsx,.xls" hidden>
+          <span class="inv-icon">💰</span>
+          <span class="inv-text" id="cost-text">選擇品號價格資料 Excel 檔案</span>
+          <span class="inv-remove" id="cost-remove" style="display:none;" onclick="removeCostFile()">×</span>
+        </div>
+        <div class="exchange-rates-panel" id="exchange-rates-panel" style="display:none;">
+          <div class="exchange-rates-hint">
+            請參考 <a href="https://rate.bot.com.tw/xrt?Lang=zh-TW" target="_blank">台灣銀行匯率</a>（現金匯率，買入加賣出平均）
+          </div>
+          <div id="exchange-rate-inputs"></div>
+        </div>
+      </div>
+
+      <!-- 採購大表 section -->
+      <div class="data-section">
+        <div class="section-label">採購大表</div>
+        <div class="inventory-drop" id="org-drop">
+          <input type="file" id="org-input" accept=".xlsx,.xls" hidden>
+          <span class="inv-icon">📋</span>
+          <span class="inv-text" id="org-text">選擇 TTW 採購大表 Excel 檔案（需含規劃性下架、成箱規定、lead time）</span>
+          <span class="inv-remove" id="org-remove" style="display:none;" onclick="removeOrgFile()">×</span>
+        </div>
+      </div>
+
+      <!-- 操作按鈕 -->
+      <button id="btn-process" class="btn btn-equals btn-wide" disabled onclick="processFile()">
+        <span class="btn-label">產生並下載報表</span>
+        <div class="spinner"></div>
+      </button>
+    </div>
+
+
+
+    <p style="text-align:center;color:var(--text-secondary);font-size:0.85rem;margin-top:1rem;">Create by Peter (Update: 2026/04/06)</p>
+    <script src="app.js"></script>
+  </body>
+</html>

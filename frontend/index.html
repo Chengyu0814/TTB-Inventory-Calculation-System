@@ -3,132 +3,162 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>TTB 虎航庫存計算系統</title>
-    <meta name="description" content="飛買家銷售明細 Excel 自動計算合併工具" />
+    <title>飛買家庫存計算系統</title>
     <link rel="stylesheet" href="style.css" />
-    <script>window.CALCULATOR_API_URL = "https://zeabur-test2.zeabur.app";</script>
+    <style>
+      .select-card-grid {
+        display: flex;
+        gap: 20px;
+        margin-top: 0;
+      }
+
+      .airline-card {
+        flex: 1;
+        border-radius: 20px;
+        padding: 36px 24px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 14px;
+        cursor: pointer;
+        text-decoration: none;
+        transition: all 0.25s ease;
+        border: 2px solid transparent;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .airline-card::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        opacity: 0;
+        transition: opacity 0.25s ease;
+        border-radius: inherit;
+      }
+
+      .airline-card:hover::before {
+        opacity: 1;
+      }
+
+      /* 虎航 - 橘色 */
+      .airline-card.tigerair {
+        background: rgba(234, 88, 12, 0.06);
+        border-color: rgba(234, 88, 12, 0.3);
+      }
+
+      .airline-card.tigerair::before {
+        background: rgba(234, 88, 12, 0.08);
+      }
+
+      .airline-card.tigerair:hover {
+        border-color: rgba(234, 88, 12, 0.7);
+        transform: translateY(-4px);
+        box-shadow: 0 12px 36px rgba(234, 88, 12, 0.2);
+      }
+
+      /* 華航 - 藍色 */
+      .airline-card.china-airlines {
+        background: rgba(37, 99, 235, 0.06);
+        border-color: rgba(37, 99, 235, 0.3);
+      }
+
+      .airline-card.china-airlines::before {
+        background: rgba(37, 99, 235, 0.08);
+      }
+
+      .airline-card.china-airlines:hover {
+        border-color: rgba(37, 99, 235, 0.7);
+        transform: translateY(-4px);
+        box-shadow: 0 12px 36px rgba(37, 99, 235, 0.2);
+      }
+
+      .airline-logo {
+        font-size: 3rem;
+        line-height: 1;
+      }
+
+      .airline-name {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: var(--text-primary);
+      }
+
+      .airline-code {
+        font-size: 0.7rem;
+        font-weight: 500;
+        letter-spacing: 0.1em;
+        padding: 3px 10px;
+        border-radius: 20px;
+      }
+
+      .tigerair .airline-code {
+        background: rgba(234, 88, 12, 0.15);
+        color: #fb923c;
+      }
+
+      .china-airlines .airline-code {
+        background: rgba(37, 99, 235, 0.15);
+        color: #60a5fa;
+      }
+
+      .airline-desc {
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+        text-align: center;
+        line-height: 1.5;
+      }
+
+      .airline-arrow {
+        font-size: 1.2rem;
+        margin-top: 4px;
+        transition: transform 0.2s ease;
+        color: var(--text-secondary);
+      }
+
+      .airline-card:hover .airline-arrow {
+        transform: translateX(4px);
+      }
+
+      .select-wrapper {
+        width: 520px;
+      }
+
+      .select-subtitle {
+        font-size: 0.78rem;
+        color: var(--text-secondary);
+        text-align: center;
+        margin-bottom: 24px;
+      }
+    </style>
   </head>
   <body>
     <div class="page-title">
-      <h1><span>TTB 虎航庫存計算系統</span></h1>
+      <h1><span>飛買家庫存計算系統</span></h1>
     </div>
 
-    <div class="calculator-card uploader-card">
-      <!-- API 狀態列 -->
-      <div class="api-status">
-        <div class="status-dot" id="status-dot"></div>
-        <span id="status-text">連線中…</span>
-      </div>
+    <div class="calculator-card uploader-card select-wrapper">
+      <p class="select-subtitle">請選擇要使用的航空公司庫存計算系統</p>
 
-      <!-- 銷售明細 section -->
-      <div class="data-section">
-        <div class="section-label">銷售明細</div>
-        <div class="month-grid" id="month-grid">
-          <div class="month-slot" data-month="01"><input type="file" class="slot-input" accept=".xlsx,.xls" hidden><div class="month-label">一月</div><span class="slot-plus">+</span></div>
-          <div class="month-slot" data-month="02"><input type="file" class="slot-input" accept=".xlsx,.xls" hidden><div class="month-label">二月</div><span class="slot-plus">+</span></div>
-          <div class="month-slot" data-month="03"><input type="file" class="slot-input" accept=".xlsx,.xls" hidden><div class="month-label">三月</div><span class="slot-plus">+</span></div>
-          <div class="month-slot" data-month="04"><input type="file" class="slot-input" accept=".xlsx,.xls" hidden><div class="month-label">四月</div><span class="slot-plus">+</span></div>
-          <div class="month-slot" data-month="05"><input type="file" class="slot-input" accept=".xlsx,.xls" hidden><div class="month-label">五月</div><span class="slot-plus">+</span></div>
-          <div class="month-slot" data-month="06"><input type="file" class="slot-input" accept=".xlsx,.xls" hidden><div class="month-label">六月</div><span class="slot-plus">+</span></div>
-          <div class="month-slot" data-month="07"><input type="file" class="slot-input" accept=".xlsx,.xls" hidden><div class="month-label">七月</div><span class="slot-plus">+</span></div>
-          <div class="month-slot" data-month="08"><input type="file" class="slot-input" accept=".xlsx,.xls" hidden><div class="month-label">八月</div><span class="slot-plus">+</span></div>
-          <div class="month-slot" data-month="09"><input type="file" class="slot-input" accept=".xlsx,.xls" hidden><div class="month-label">九月</div><span class="slot-plus">+</span></div>
-          <div class="month-slot" data-month="10"><input type="file" class="slot-input" accept=".xlsx,.xls" hidden><div class="month-label">十月</div><span class="slot-plus">+</span></div>
-          <div class="month-slot" data-month="11"><input type="file" class="slot-input" accept=".xlsx,.xls" hidden><div class="month-label">十一月</div><span class="slot-plus">+</span></div>
-          <div class="month-slot" data-month="12"><input type="file" class="slot-input" accept=".xlsx,.xls" hidden><div class="month-label">十二月</div><span class="slot-plus">+</span></div>
-        </div>
-      </div>
+      <div class="select-card-grid">
+        <a href="tigerair.html" class="airline-card tigerair">
+          <div class="airline-logo">🐯</div>
+          <div class="airline-name">虎航</div>
+          <div class="airline-code">TTW · Tigerair Taiwan</div>
+          <div class="airline-desc">TTB 虎航庫存計算<br>補貨建議報表</div>
+          <div class="airline-arrow">→</div>
+        </a>
 
-      <!-- 在途庫存 section -->
-      <div class="data-section">
-        <div class="section-label">在途庫存</div>
-        <div class="inventory-drop" id="inventory-drop">
-          <input type="file" id="inventory-input" accept=".xlsx,.xls" hidden>
-          <span class="inv-icon">📦</span>
-          <span class="inv-text" id="inv-text">選擇採購未交量 Excel 檔案</span>
-          <span class="inv-remove" id="inv-remove" style="display:none;" onclick="removeInventoryFile()">×</span>
-        </div>
+        <a href="china-airlines.html" class="airline-card china-airlines">
+          <div class="airline-logo">✈️</div>
+          <div class="airline-name">華航</div>
+          <div class="airline-code">CAL · China Airlines</div>
+          <div class="airline-desc">華航庫存計算<br>補貨建議報表</div>
+          <div class="airline-arrow">→</div>
+        </a>
       </div>
-
-      <!-- 機上量 section -->
-      <div class="data-section">
-        <div class="section-label">機上量</div>
-        <div class="onboard-row">
-          <label class="inventory-drop" id="onboard-normal-drop">
-            <input type="file" id="onboard-normal-input" accept=".xlsx,.xls" hidden>
-            <span class="inv-icon">✈️</span>
-            <span class="inv-text" id="onboard-normal-text">一般航線</span>
-            <span class="inv-remove" id="onboard-normal-remove" style="display:none;" onclick="event.preventDefault(); removeOnboardFile('normal')">×</span>
-          </label>
-          <label class="inventory-drop" id="onboard-fly-drop">
-            <input type="file" id="onboard-fly-input" accept=".xlsx,.xls" hidden>
-            <span class="inv-icon">✈️</span>
-            <span class="inv-text" id="onboard-fly-text">串飛航線</span>
-            <span class="inv-remove" id="onboard-fly-remove" style="display:none;" onclick="event.preventDefault(); removeOnboardFile('fly')">×</span>
-          </label>
-        </div>
-      </div>
-
-      <!-- 期末存量 section -->
-      <div class="data-section">
-        <div class="section-label">期末存量</div>
-        <div class="inventory-drop" id="stock-drop">
-          <input type="file" id="stock-input" accept=".xlsx,.xls" hidden>
-          <span class="inv-icon">📊</span>
-          <span class="inv-text" id="stock-text">選擇 IT Inventory Excel 檔案</span>
-          <span class="inv-remove" id="stock-remove" style="display:none;" onclick="removeStockFile()">×</span>
-        </div>
-      </div>
-
-      <!-- 本月進貨 section -->
-      <div class="data-section">
-        <div class="section-label">本月進貨</div>
-        <div class="inventory-drop" id="import-drop">
-          <input type="file" id="import-input" accept=".xlsx,.xls" hidden>
-          <span class="inv-icon">🚚</span>
-          <span class="inv-text" id="import-text">選擇進貨明細 Excel 檔案</span>
-          <span class="inv-remove" id="import-remove" style="display:none;" onclick="removeImportFile()">×</span>
-        </div>
-      </div>
-
-      <!-- 商品成本 section -->
-      <div class="data-section">
-        <div class="section-label">商品成本</div>
-        <div class="inventory-drop" id="cost-drop">
-          <input type="file" id="cost-input" accept=".xlsx,.xls" hidden>
-          <span class="inv-icon">💰</span>
-          <span class="inv-text" id="cost-text">選擇品號價格資料 Excel 檔案</span>
-          <span class="inv-remove" id="cost-remove" style="display:none;" onclick="removeCostFile()">×</span>
-        </div>
-        <div class="exchange-rates-panel" id="exchange-rates-panel" style="display:none;">
-          <div class="exchange-rates-hint">
-            請參考 <a href="https://rate.bot.com.tw/xrt?Lang=zh-TW" target="_blank">台灣銀行匯率</a>（現金匯率，買入加賣出平均）
-          </div>
-          <div id="exchange-rate-inputs"></div>
-        </div>
-      </div>
-
-      <!-- 採購大表 section -->
-      <div class="data-section">
-        <div class="section-label">採購大表</div>
-        <div class="inventory-drop" id="org-drop">
-          <input type="file" id="org-input" accept=".xlsx,.xls" hidden>
-          <span class="inv-icon">📋</span>
-          <span class="inv-text" id="org-text">選擇 TTW 採購大表 Excel 檔案（需含規劃性下架、成箱規定、lead time）</span>
-          <span class="inv-remove" id="org-remove" style="display:none;" onclick="removeOrgFile()">×</span>
-        </div>
-      </div>
-
-      <!-- 操作按鈕 -->
-      <button id="btn-process" class="btn btn-equals btn-wide" disabled onclick="processFile()">
-        <span class="btn-label">產生並下載報表</span>
-        <div class="spinner"></div>
-      </button>
     </div>
 
-
-
-    <p style="text-align:center;color:var(--text-secondary);font-size:0.85rem;margin-top:1rem;">Create by Peter (Update: 2026/04/06)</p>
-    <script src="app.js"></script>
+    <p style="text-align:center;color:var(--text-secondary);font-size:0.85rem;margin-top:1rem;">Create by Peter (Update: 2026/04/09)</p>
   </body>
 </html>

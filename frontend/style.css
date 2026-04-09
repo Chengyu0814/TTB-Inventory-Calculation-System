@@ -105,6 +105,19 @@ body::after {
   margin-top: 0.5rem;
 }
 
+.back-link {
+  display: inline-block;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  text-decoration: none;
+  margin-bottom: 10px;
+  transition: color 0.2s ease;
+}
+
+.back-link:hover {
+  color: var(--text-primary);
+}
+
 /* ===================================
    Card & Upload Zone
    =================================== */
