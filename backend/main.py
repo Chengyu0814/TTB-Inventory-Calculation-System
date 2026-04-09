@@ -656,6 +656,7 @@ async def cal_process_excel(
     # 合併在途庫存（選填）
     if inventory_file and inventory_file.filename:
         df_inv = await process_cal_inventory(inventory_file)
+        merged = merged.merge(df_inv, on='PART_NO', how='left')
         merged['在途庫存'] = merged['在途庫存'].fillna(0).astype(int)
 
     # 輸出檔名：X月到X月（單月則只顯示該月）
