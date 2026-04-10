@@ -1,6 +1,7 @@
 import io
 import json
 import math
+import zipfile
 from urllib.parse import quote
 from typing import List, Optional
 from functools import reduce
@@ -621,8 +622,8 @@ async def process_excel(
 
 @app.post("/cal/process-excel")
 async def cal_process_excel(
-    files: List[UploadFile] = File(None),
-    months: List[str] = Form(None),
+    files: Optional[List[UploadFile]] = File(default=None),
+    months: Optional[List[str]] = Form(default=None),
     inventory_file: Optional[UploadFile] = File(None),
     cost_file: Optional[UploadFile] = File(None),
     exchange_rates_json: Optional[str] = Form(None),
@@ -690,56 +691,92 @@ async def cal_process_excel(
             raise HTTPException(status_code=400, detail="匯率格式錯誤")
         df_cost = await process_cal_cost(cost_file, exchange_rates)
 
-    # 合併所有資料
-    merged = None
-
-    if has_months:
-        merged = reduce(lambda l, r: l.merge(r, on='PART_NO', how='outer'), month_dfs)
-        merged = merged.fillna(0)
-        for col in merged.columns:
-            if col != 'PART_NO':
-                merged[col] = merged[col].astype(int)
-        merged = merged.dropna(subset=['PART_NO'])
-        merged = merged[merged['PART_NO'].astype(str).str.strip() != '']
-        merged = merged.sort_values(by='PART_NO').reset_index(drop=True)
-
-    # 合併在途庫存
+    # 處理在途庫存
+    df_inv_data = None
     if has_inventory:
-        df_inv = await process_cal_inventory(inventory_file)
-        if merged is not None:
-            merged = merged.merge(df_inv, on='PART_NO', how='left')
-            merged['在途庫存'] = merged['在途庫存'].fillna(0).astype(int)
-        else:
-            merged = df_inv.sort_values(by='PART_NO').reset_index(drop=True)
+        df_inv_data = await process_cal_inventory(inventory_file)
 
-    # 合併商品成本
-    if df_cost is not None:
-        if merged is not None:
-            merged = merged.merge(df_cost[['PART_NO', 'TWD成本']], on='PART_NO', how='left')
-        else:
-            merged = df_cost.sort_values(by='PART_NO').reset_index(drop=True)
+    # === 沒有月份檔案：只有在途庫存 / 商品成本（獨立下載） ===
+    if not has_months:
+        merged = None
+        if df_inv_data is not None:
+            merged = df_inv_data.sort_values(by='PART_NO').reset_index(drop=True)
+        if df_cost is not None:
+            if merged is not None:
+                merged = merged.merge(df_cost[['PART_NO', 'TWD成本']], on='PART_NO', how='left')
+            else:
+                merged = df_cost.sort_values(by='PART_NO').reset_index(drop=True)
 
-    # 輸出檔名
-    present_months_sorted = [m for m in MONTH_ORDER if m in present_months]
-    if len(present_months_sorted) == 0:
         out_filename = '華航庫存表.xlsx'
-    elif len(present_months_sorted) == 1:
-        month_range = present_months_sorted[0]
-        out_filename = f'華航庫存計算表_{month_range}.xlsx'
-    else:
-        month_range = f'{present_months_sorted[0]}到{present_months_sorted[-1]}'
-        out_filename = f'華航庫存計算表_{month_range}.xlsx'
+        output_stream = io.BytesIO()
+        with pd.ExcelWriter(output_stream, engine='openpyxl') as writer:
+            merged.to_excel(writer, sheet_name='報表', index=False)
+        output_stream.seek(0)
 
-    output_stream = io.BytesIO()
-    with pd.ExcelWriter(output_stream, engine='openpyxl') as writer:
-        merged.to_excel(writer, sheet_name='報表', index=False)
-    output_stream.seek(0)
+        return StreamingResponse(
+            output_stream,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={
+                "Content-Disposition": f"attachment; filename*=UTF-8''{quote(out_filename)}",
+                "Access-Control-Expose-Headers": "Content-Disposition"
+            }
+        )
+
+    # === 有月份檔案：每月各自一個 xlsx ===
+    def build_month_excel(df_month):
+        """將單月 DataFrame 合併在途庫存與成本後寫入 BytesIO"""
+        df = df_month.copy()
+        df = df.dropna(subset=['PART_NO'])
+        df = df[df['PART_NO'].astype(str).str.strip() != '']
+        for col in df.columns:
+            if col != 'PART_NO':
+                df[col] = df[col].astype(int)
+        df = df.sort_values(by='PART_NO').reset_index(drop=True)
+
+        if df_inv_data is not None:
+            df = df.merge(df_inv_data, on='PART_NO', how='left')
+            df['在途庫存'] = df['在途庫存'].fillna(0).astype(int)
+
+        if df_cost is not None:
+            df = df.merge(df_cost[['PART_NO', 'TWD成本']], on='PART_NO', how='left')
+
+        buf = io.BytesIO()
+        with pd.ExcelWriter(buf, engine='openpyxl') as writer:
+            df.to_excel(writer, sheet_name='報表', index=False)
+        buf.seek(0)
+        return buf
+
+    # 單月 → 直接回傳 xlsx
+    if len(month_dfs) == 1:
+        month_name = present_months[0]
+        output_stream = build_month_excel(month_dfs[0])
+        out_filename = f'華航庫存計算表_{month_name}.xlsx'
+
+        return StreamingResponse(
+            output_stream,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={
+                "Content-Disposition": f"attachment; filename*=UTF-8''{quote(out_filename)}",
+                "Access-Control-Expose-Headers": "Content-Disposition"
+            }
+        )
+
+    # 多月 → 打包成 ZIP
+    zip_stream = io.BytesIO()
+    with zipfile.ZipFile(zip_stream, 'w', zipfile.ZIP_DEFLATED) as zf:
+        for df_month, month_name in zip(month_dfs, present_months):
+            xlsx_buf = build_month_excel(df_month)
+            zf.writestr(f'華航庫存計算表_{month_name}.xlsx', xlsx_buf.read())
+    zip_stream.seek(0)
+
+    present_months_sorted = [m for m in MONTH_ORDER if m in present_months]
+    zip_filename = f'華航庫存計算表_{present_months_sorted[0]}到{present_months_sorted[-1]}.zip'
 
     return StreamingResponse(
-        output_stream,
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        zip_stream,
+        media_type="application/zip",
         headers={
-            "Content-Disposition": f"attachment; filename*=UTF-8''{quote(out_filename)}",
+            "Content-Disposition": f"attachment; filename*=UTF-8''{quote(zip_filename)}",
             "Access-Control-Expose-Headers": "Content-Disposition"
         }
     )
