@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>TTB 虎航庫存計算系統</title>
     <meta name="description" content="飛買家銷售明細 Excel 自動計算合併工具" />
-    <link rel="stylesheet" href="style.css?v=3" />
+    <link rel="stylesheet" href="style.css?v=4" />
     <script>window.CALCULATOR_API_URL = "https://zeabur-test2.zeabur.app";</script>
   </head>
   <body>
@@ -170,7 +170,7 @@
               <tr><td><code>成箱規定</code></td><td>採購大表，預設 5</td></tr>
               <tr><td><code>TWD成本</code></td><td>品號價格資料（外幣 × 匯率）</td></tr>
               <tr><td><code>lead time</code></td><td>採購大表</td></tr>
-              <tr><td><code>機上量</code></td><td>一般航線 × 41 + 串飛航線 × 10</td></tr>
+              <tr><td><code>機上量</code></td><td>一般航線 × 41 + 串飛航線 × 10（預設，可於機上量區塊調整）</td></tr>
             </tbody>
           </table>
         </div>
@@ -203,13 +203,14 @@
           <table class="spec-table">
             <thead><tr><th>欄位</th><th>公式</th></tr></thead>
             <tbody>
-              <tr><td><code>需求量(1.5)</code></td><td>機上量 + MAX(平均月銷量, 本月銷貨) × 1.5</td></tr>
+              <tr><td><code>需求量(1.5)</code></td><td>機上量 + MAX(平均月銷量, 本月銷貨) × 1.5（預設，可於採購大表區塊調整短期需求月數）</td></tr>
               <tr><td><code>補貨量(以1.5個月)</code></td><td>MAX(需求量(1.5) − (期末存量 − 本月銷貨) − 本月進貨 − 在途庫存, 0)，再依成箱規定無條件進位</td></tr>
               <tr><td><code>採購金額(1.5)</code></td><td>補貨量(以1.5個月) × TWD成本</td></tr>
               <tr><td><code>需求量_lead_time</code></td><td>機上量 + MAX(平均月銷量, 本月銷貨) × lead time</td></tr>
               <tr><td><code>補貨量(以lead time)</code></td><td>同上邏輯，改用 <code>需求量_lead_time</code></td></tr>
               <tr><td><code>採購金額(lead time)</code></td><td>補貨量(以lead time) × TWD成本</td></tr>
               <tr><td><code>追加數量</code></td><td>補貨量(以lead time) − 補貨量(以1.5個月)</td></tr>
+              <tr><td colspan="2" style="color:var(--text-secondary);font-size:0.72rem;">※ 上述 1.5 若有調整，輸出欄位名會跟著變（例如改成 2 → <code>需求量(2)</code>）</td></tr>
             </tbody>
           </table>
         </div>
