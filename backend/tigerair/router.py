@@ -48,6 +48,9 @@ async def process_excel(
     cost_file: Optional[UploadFile] = File(None),
     exchange_rates_json: Optional[str] = Form(None),
     org_file: Optional[UploadFile] = File(None),
+    normal_multiplier: float = Form(41),
+    fly_multiplier: float = Form(10),
+    demand_months: float = Form(1.5),
 ):
     has_sales = bool(files and any(f.filename for f in files))
     has_inventory = bool(inventory_file and inventory_file.filename)
@@ -153,7 +156,11 @@ async def process_excel(
     # ── 處理機上量 ────────────────────────────────────────────
     df_onboard = None
     if has_onboard:
-        df_onboard = await process_onboard(onboard_normal_file, onboard_fly_file)
+        df_onboard = await process_onboard(
+            onboard_normal_file, onboard_fly_file,
+            normal_multiplier=normal_multiplier,
+            fly_multiplier=fly_multiplier,
+        )
         if result is None:
             result = df_onboard
 
@@ -230,9 +237,12 @@ async def process_excel(
 
     # ── 採購大表：補貨計算 ─────────────────────────────────────
     has_org = bool(org_file and org_file.filename)
+    months_label = ""
     if has_org:
         df_org = await process_org(org_file)
-        merged, calc_month = run_replenishment_calculation(merged, df_org)
+        merged, calc_month, months_label = run_replenishment_calculation(
+            merged, df_org, demand_months=demand_months
+        )
         if not present_months and calc_month:
             out_month = calc_month
         elif present_months:
@@ -252,28 +262,47 @@ async def process_excel(
         out_filename = "TTW 庫存表.xlsx"
 
     # ── 寫入 Excel ─────────────────────────────────────────────
-    output_stream = _write_tigerair_excel(merged, has_org, out_month)
+    output_stream = _write_tigerair_excel(
+        merged, has_org, out_month,
+        normal_multiplier=normal_multiplier,
+        fly_multiplier=fly_multiplier,
+        months_label=months_label,
+    )
     return make_xlsx_response(output_stream, out_filename)
 
 
-def _write_tigerair_excel(merged: pd.DataFrame, has_org: bool, out_month: str) -> io.BytesIO:
+def _fmt_num(value: float) -> str:
+    """倍數顯示：整數不帶小數點"""
+    return str(int(value)) if float(value).is_integer() else f"{float(value):g}"
+
+
+def _write_tigerair_excel(
+    merged: pd.DataFrame,
+    has_org: bool,
+    out_month: str,
+    normal_multiplier: float = 41,
+    fly_multiplier: float = 10,
+    months_label: str = "1.5",
+) -> io.BytesIO:
     """將彙整結果寫入 xlsx；補貨報表會在欄位標題加 cell comment 說明計算公式"""
     output_stream = io.BytesIO()
+    nm = _fmt_num(normal_multiplier)
+    fm = _fmt_num(fly_multiplier)
     if has_org:
         with pd.ExcelWriter(output_stream, engine="xlsxwriter") as writer:
             merged.to_excel(writer, sheet_name="Main", index=False)
             worksheet = writer.sheets["Main"]
             descriptions = {
-                "機上量": "DFS一般航線裝載表 × 41 + 串飛航線裝載表 × 10",
+                "機上量": f"DFS一般航線裝載表 × {nm} + 串飛航線裝載表 × {fm}",
                 "平均月銷量": "所有月份的銷售量平均",
                 f"本月銷貨({out_month})": "最新月份的銷售量",
-                "需求量(1.5)": "機上量+MAX(平均月銷量,本月銷貨)*1.5",
-                "補貨量(以1.5個月)": "MAX(需求量-(期末存量-本月銷貨)-本月進貨-在途庫存,0) ，且有考慮成箱規定與規劃性下架",
-                "採購金額(1.5)": "補貨量(以1.5個月)*TWD成本",
+                f"需求量({months_label})": f"機上量+MAX(平均月銷量,本月銷貨)*{months_label}",
+                f"補貨量(以{months_label}個月)": "MAX(需求量-(期末存量-本月銷貨)-本月進貨-在途庫存,0) ，且有考慮成箱規定與規劃性下架",
+                f"採購金額({months_label})": f"補貨量(以{months_label}個月)*TWD成本",
                 "需求量_lead_time": "機上量+MAX(平均月銷量,本月銷貨)*lead time",
                 "補貨量(以lead time)": "MAX(需求量_lead_time-(期末存量-本月銷貨)-本月進貨-在途庫存,0) ，且有考慮成箱規定與規劃性下架",
                 "採購金額(lead time)": "補貨量(以lead time)*TWD成本",
-                "追加數量": "補貨量(以lead time)-補貨量(以1.5個月)",
+                "追加數量": f"補貨量(以lead time)-補貨量(以{months_label}個月)",
             }
             for col_num, col_name in enumerate(merged.columns):
                 if col_name in descriptions:

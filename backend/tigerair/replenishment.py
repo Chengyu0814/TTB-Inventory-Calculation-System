@@ -32,8 +32,21 @@ def calculate_replenishment(row, demand_col, month_col):
         return math.ceil(x / box_rule) * box_rule
 
 
-def run_replenishment_calculation(merged: pd.DataFrame, df_org: pd.DataFrame) -> tuple[pd.DataFrame, str]:
-    """合併採購大表並執行補貨計算，回傳 (結果DataFrame, 月份名稱)"""
+def _format_months(value: float) -> str:
+    """把需求月數格式化成顯示字串（整數不帶小數點）"""
+    return str(int(value)) if float(value).is_integer() else f"{float(value):g}"
+
+
+def run_replenishment_calculation(
+    merged: pd.DataFrame,
+    df_org: pd.DataFrame,
+    demand_months: float = 1.5,
+) -> tuple[pd.DataFrame, str, str]:
+    """合併採購大表並執行補貨計算，回傳 (結果DataFrame, 月份名稱, 短期需求月數顯示字串)"""
+    months_label = _format_months(demand_months)
+    demand_col = f"需求量({months_label})"
+    restock_col = f"補貨量(以{months_label}個月)"
+    amount_col = f"採購金額({months_label})"
     df_org_subset = df_org[["SKU No.", "DESCRIPTION", "規劃性下架", "成箱規定", "lead time"]].copy()
     df_org_subset["SKU No."] = df_org_subset["SKU No."].astype(str).str.strip()
 
@@ -71,15 +84,15 @@ def run_replenishment_calculation(merged: pd.DataFrame, df_org: pd.DataFrame) ->
     new_col_order = [c for c in new_col_order if c in df_row.columns]
     df_row = df_row[new_col_order]
 
-    # 需求量 & 補貨量 (1.5個月)
-    df_row["需求量(1.5)"] = (
+    # 需求量 & 補貨量 (短期，依 demand_months)
+    df_row[demand_col] = (
         df_row["機上量"].fillna(0)
-        + np.maximum(df_row["平均月銷量"].fillna(0), df_row[this_month_col].fillna(0)) * 1.5
+        + np.maximum(df_row["平均月銷量"].fillna(0), df_row[this_month_col].fillna(0)) * demand_months
     ).round(0)
-    df_row["補貨量(以1.5個月)"] = df_row.apply(
-        lambda r: calculate_replenishment(r, "需求量(1.5)", this_month_col), axis=1
+    df_row[restock_col] = df_row.apply(
+        lambda r: calculate_replenishment(r, demand_col, this_month_col), axis=1
     ).round(0)
-    df_row["採購金額(1.5)"] = (df_row["補貨量(以1.5個月)"] * df_row["TWD成本"].fillna(0)).round(0)
+    df_row[amount_col] = (df_row[restock_col] * df_row["TWD成本"].fillna(0)).round(0)
 
     # 需求量 & 補貨量 (lead time)
     df_row["需求量_lead_time"] = (
@@ -91,8 +104,8 @@ def run_replenishment_calculation(merged: pd.DataFrame, df_org: pd.DataFrame) ->
         lambda r: calculate_replenishment(r, "需求量_lead_time", this_month_col), axis=1
     ).round(0)
     df_row["採購金額(lead time)"] = (df_row["補貨量(以lead time)"] * df_row["TWD成本"].fillna(0)).round(0)
-    df_row["追加數量"] = (df_row["補貨量(以lead time)"] - df_row["補貨量(以1.5個月)"]).round(0)
+    df_row["追加數量"] = (df_row["補貨量(以lead time)"] - df_row[restock_col]).round(0)
 
     df_row = df_row[~df_row["SKU No."].astype(str).str.contains("B")]
 
-    return df_row, month_name
+    return df_row, month_name, months_label

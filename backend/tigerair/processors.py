@@ -106,10 +106,15 @@ async def process_stock(file: UploadFile) -> pd.DataFrame: # 期末存量
     return df[["SKU No.", "品名", "期末存量"]]
 
 
-async def process_onboard(normal_file: UploadFile, fly_file: UploadFile) -> pd.DataFrame: # 機上量
-    """處理 機上量 檔案（一般航線 × 41，串飛航線 × 10），回傳 SKU No. + 品名 + 機上量 的 DataFrame"""
+async def process_onboard(
+    normal_file: UploadFile,
+    fly_file: UploadFile,
+    normal_multiplier: float = 41,
+    fly_multiplier: float = 10,
+) -> pd.DataFrame: # 機上量
+    """處理 機上量 檔案（倍數可由呼叫端覆寫，預設 一般航線 × 41，串飛航線 × 10）"""
 
-    async def read_onboard_file(file: UploadFile, multiplier: int):
+    async def read_onboard_file(file: UploadFile, multiplier: float):
         contents = await file.read()
         try:
             df = pd.read_excel(io.BytesIO(contents), header=1, dtype={"SKU No.": str})
@@ -125,8 +130,8 @@ async def process_onboard(normal_file: UploadFile, fly_file: UploadFile) -> pd.D
             raise HTTPException(status_code=500, detail=f"讀取機上量檔案 '{file.filename}' 失敗: {str(e)}")
         return df_result, df_unique
 
-    df_normal, normal_unique = await read_onboard_file(normal_file, 41)
-    df_fly, fly_unique = await read_onboard_file(fly_file, 10)
+    df_normal, normal_unique = await read_onboard_file(normal_file, normal_multiplier)
+    df_fly, fly_unique = await read_onboard_file(fly_file, fly_multiplier)
 
     df_merged = pd.merge(df_normal, df_fly, on="SKU No.", how="outer", suffixes=("_normal", "_fly"))
     df_merged["機上量"] = df_merged["裝載數量_normal"].fillna(0) + df_merged["裝載數量_fly"].fillna(0)

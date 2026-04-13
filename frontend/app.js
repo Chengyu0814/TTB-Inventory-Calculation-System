@@ -206,6 +206,7 @@ function setOnboardFile(type, file) {
     onboardFlyText.title = file.name;
     onboardFlyRemove.style.display = "";
   }
+  toggleOnboardParams();
   updateButton();
 }
 
@@ -223,7 +224,14 @@ function removeOnboardFile(type) {
     onboardFlyText.title = "";
     onboardFlyRemove.style.display = "none";
   }
+  toggleOnboardParams();
   updateButton();
+}
+
+function toggleOnboardParams() {
+  const panel = document.getElementById("onboard-params-panel");
+  if (!panel) return;
+  panel.style.display = (onboardNormalFile || onboardFlyFile) ? "" : "none";
 }
 
 // ====================================================
@@ -423,6 +431,8 @@ async function processFile() {
   if (onboardNormalFile && onboardFlyFile) {
     formData.append("onboard_normal_file", onboardNormalFile);
     formData.append("onboard_fly_file", onboardFlyFile);
+    appendParamIfSet(formData, "normal_multiplier", "normal-multiplier");
+    appendParamIfSet(formData, "fly_multiplier", "fly-multiplier");
   } else if (onboardNormalFile || onboardFlyFile) {
     alert("機上量需同時上傳一般航線與串飛航線兩個檔案");
     setLoading(false);
@@ -439,6 +449,7 @@ async function processFile() {
 
   if (orgFile) {
     formData.append("org_file", orgFile);
+    appendParamIfSet(formData, "demand_months", "demand-months");
   }
 
   if (costFile) {
@@ -623,6 +634,7 @@ function setOrgFile(file) {
   orgText.textContent = name;
   orgText.title = file.name;
   orgRemove.style.display = "";
+  toggleOrgParams();
   updateButton();
 }
 
@@ -632,7 +644,50 @@ function removeOrgFile() {
   orgText.textContent = "選擇 TTW 採購大表 Excel 檔案（需含規劃性下架、成箱規定、lead time）";
   orgText.title = "";
   orgRemove.style.display = "none";
+  toggleOrgParams();
   updateButton();
+}
+
+function toggleOrgParams() {
+  const panel = document.getElementById("org-params-panel");
+  if (!panel) return;
+  panel.style.display = orgFile ? "" : "none";
+}
+
+// ────── 進階參數：localStorage 持久化 + FormData 讀取 ──────
+const TIGERAIR_PARAM_IDS = ["normal-multiplier", "fly-multiplier", "demand-months"];
+const TIGERAIR_PARAM_KEY = "tigerair-params-v1";
+
+function loadTigerairParams() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(TIGERAIR_PARAM_KEY) || "{}");
+    TIGERAIR_PARAM_IDS.forEach(id => {
+      const el = document.getElementById(id);
+      if (el && saved[id] !== undefined && saved[id] !== "") el.value = saved[id];
+    });
+  } catch {}
+}
+
+function saveTigerairParams() {
+  const data = {};
+  TIGERAIR_PARAM_IDS.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) data[id] = el.value;
+  });
+  try { localStorage.setItem(TIGERAIR_PARAM_KEY, JSON.stringify(data)); } catch {}
+}
+
+TIGERAIR_PARAM_IDS.forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener("change", saveTigerairParams);
+});
+loadTigerairParams();
+
+function appendParamIfSet(formData, key, id) {
+  const el = document.getElementById(id);
+  if (el && el.value !== "" && !isNaN(parseFloat(el.value))) {
+    formData.append(key, el.value);
+  }
 }
 
 function getExchangeRates() {

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>TTB 虎航庫存計算系統</title>
     <meta name="description" content="飛買家銷售明細 Excel 自動計算合併工具" />
-    <link rel="stylesheet" href="style.css?v=2" />
+    <link rel="stylesheet" href="style.css?v=3" />
     <script>window.CALCULATOR_API_URL = "https://zeabur-test2.zeabur.app";</script>
   </head>
   <body>
@@ -68,6 +68,17 @@
             <span class="inv-remove" id="onboard-fly-remove" style="display:none;" onclick="event.preventDefault(); removeOnboardFile('fly')">×</span>
           </label>
         </div>
+        <div class="params-panel" id="onboard-params-panel" style="display:none;">
+          <div class="exchange-rates-hint">裝載倍數設定（留空則使用預設）</div>
+          <div class="param-row">
+            <label>一般航線倍數</label>
+            <input class="rate-input" type="number" id="normal-multiplier" min="0" step="1" placeholder="41">
+          </div>
+          <div class="param-row">
+            <label>串飛航線倍數</label>
+            <input class="rate-input" type="number" id="fly-multiplier" min="0" step="1" placeholder="10">
+          </div>
+        </div>
       </div>
 
       <!-- 期末存量 section -->
@@ -117,6 +128,14 @@
           <span class="inv-icon">📋</span>
           <span class="inv-text" id="org-text">選擇 TTW 採購大表 Excel 檔案（需含規劃性下架、成箱規定、lead time）</span>
           <span class="inv-remove" id="org-remove" style="display:none;" onclick="removeOrgFile()">×</span>
+        </div>
+        <div class="params-panel" id="org-params-panel" style="display:none;">
+          <div class="exchange-rates-hint">補貨計算參數（留空則使用預設）</div>
+          <div class="param-row">
+            <label>短期需求月數</label>
+            <input class="rate-input" type="number" id="demand-months" min="0" step="0.1" placeholder="1.5">
+          </div>
+          <div class="param-hint">※ 另一組需求量採用採購大表的 <code>lead time</code></div>
         </div>
       </div>
 
@@ -199,6 +218,6 @@
     </details>
 
     <p style="text-align:center;color:var(--text-secondary);font-size:0.85rem;margin-top:1rem;">Create by Peter (Update: 2026/04/06)</p>
-    <script src="app.js"></script>
+    <script src="app.js?v=2"></script>
   </body>
 </html>
