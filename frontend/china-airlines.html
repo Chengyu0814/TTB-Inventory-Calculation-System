@@ -46,7 +46,7 @@
         <div class="inventory-drop" id="inventory-drop">
           <input type="file" id="inventory-input" accept=".xlsx,.xls" hidden>
           <span class="inv-icon">📦</span>
-          <span class="inv-text" id="inv-text">選擇採購未交量 Excel 檔案</span>
+          <span class="inv-text" id="inv-text">選擇採購未交量檔案</span>
           <span class="inv-remove" id="inv-remove" style="display:none;" onclick="removeInventoryFile()">×</span>
         </div>
       </div>
@@ -57,7 +57,7 @@
         <div class="inventory-drop" id="cost-drop">
           <input type="file" id="cost-input" accept=".xlsx,.xls" hidden>
           <span class="inv-icon">💰</span>
-          <span class="inv-text" id="cost-text">選擇品號價格資料 Excel 檔案</span>
+          <span class="inv-text" id="cost-text">選擇品號價格資料檔案</span>
           <span class="inv-remove" id="cost-remove" style="display:none;" onclick="removeCostFile()">×</span>
         </div>
         <div class="exchange-rates-panel" id="exchange-rates-panel" style="display:none;">
@@ -74,7 +74,7 @@
         <div class="inventory-drop" id="loading-drop">
           <input type="file" id="loading-input" accept=".xlsx,.xls" hidden>
           <span class="inv-icon">✈️</span>
-          <span class="inv-text" id="loading-text">選擇新版裝載表 Excel 檔案</span>
+          <span class="inv-text" id="loading-text">選擇裝載表檔案</span>
           <span class="inv-remove" id="loading-remove" style="display:none;" onclick="removeLoadingFile()">×</span>
         </div>
         <div class="loading-sets-panel" id="loading-sets-panel" style="display:none;">
@@ -95,7 +95,7 @@
         <div class="inventory-drop" id="procurement-drop">
           <input type="file" id="procurement-input" accept=".xlsx,.xls" hidden>
           <span class="inv-icon">📋</span>
-          <span class="inv-text" id="procurement-text">選擇 CAL 採購大表 Excel 檔案</span>
+          <span class="inv-text" id="procurement-text">選擇 CAL 採購大表檔（需含 CI CODE、TTB CODE、規劃性下架、成箱規定）</span>
           <span class="inv-remove" id="procurement-remove" style="display:none;" onclick="removeProcurementFile()">×</span>
         </div>
       </div>
@@ -106,6 +106,73 @@
         <div class="spinner"></div>
       </button>
     </div>
+
+    <!-- 輸出欄位說明 -->
+    <details class="output-spec">
+      <summary>
+        <span class="output-spec-title">輸出報表欄位說明</span>
+        <span class="output-spec-hint">點擊展開</span>
+      </summary>
+
+      <div class="output-spec-body">
+        <p class="output-spec-intro">
+          上傳全部檔案（含<strong>採購大表</strong>）後，系統會輸出
+          <code>華航補貨計算表_{月份}.xlsx</code>，欄位以機場分組（MultiIndex），說明如下：
+        </p>
+
+        <div class="spec-group">
+          <div class="spec-group-title">共用欄位（無機場分組）</div>
+          <table class="spec-table">
+            <thead><tr><th>欄位</th><th>來源 / 計算</th></tr></thead>
+            <tbody>
+              <tr><td><code>PART_NO</code></td><td>裝載表 CI Code，為各倉合併的 key</td></tr>
+              <tr><td><code>SKU</code></td><td>裝載表 SKU 品名</td></tr>
+              <tr><td><code>TTB CODE</code></td><td>採購大表</td></tr>
+              <tr><td><code>規劃性下架</code></td><td>採購大表；有值時該品項所有機場補貨量強制為 0</td></tr>
+              <tr><td><code>成箱規定</code></td><td>採購大表，預設 5；補貨量依此無條件進位至整箱</td></tr>
+              <tr><td><code>成本(TWD)</code></td><td>品號價格資料（外幣 × 匯率），取最新核價日；需上傳商品成本才會出現</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="spec-group">
+          <div class="spec-group-title">TPE（桃園）</div>
+          <table class="spec-table">
+            <thead><tr><th>欄位</th><th>來源 / 計算</th></tr></thead>
+            <tbody>
+              <tr><td><code>{月份}銷售量</code></td><td>TPEKNCP sheet CS_QTY，每上傳月份各一欄</td></tr>
+              <tr><td><code>庫存數</code></td><td>TPEKNCP + TPEKSCI 期末存量（END_TTL_QTY）合併加總</td></tr>
+              <tr><td><code>裝載量</code></td><td>裝載表 裝載數量</td></tr>
+              <tr><td><code>裝載套數</code></td><td>依裝載表 Q2 類型對應套數（預設 A=247、B=62、B7=27，可於裝載表區塊調整）</td></tr>
+              <tr><td><code>裝載需求量</code></td><td>裝載量 × 裝載套數</td></tr>
+              <tr><td><code>月銷需求量</code></td><td>各月銷售量平均（四捨五入）</td></tr>
+              <tr><td><code>在途庫存</code></td><td>採購未交量（篩選 交貨庫 = 華膳-CI，品號尾 A）；需上傳在途庫存才會出現</td></tr>
+              <tr><td><code>移出量</code></td><td>TSA + KHH + RMQ 三倉待移倉量加總</td></tr>
+              <tr><td><code>請購量</code></td><td>MAX(裝載需求量 + 月銷需求量 + 移出量 − 在途庫存 − 庫存數, 0)，依成箱規定無條件進位</td></tr>
+              <tr><td><code>請購金額</code></td><td>請購量 × 成本(TWD)；需上傳商品成本才會出現</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="spec-group">
+          <div class="spec-group-title">TSA / KHH / RMQ（松山 / 高雄 / 台中）</div>
+          <table class="spec-table">
+            <thead><tr><th>欄位</th><th>來源 / 計算</th></tr></thead>
+            <tbody>
+              <tr><td><code>{月份}銷售量</code></td><td>對應機場 sheet CS_QTY，每上傳月份各一欄</td></tr>
+              <tr><td><code>庫存數</code></td><td>對應機場 sheet 期末存量（END_TTL_QTY）</td></tr>
+              <tr><td><code>裝載量</code></td><td>裝載表 裝載數量</td></tr>
+              <tr><td><code>裝載套數</code></td><td>依 Q2 類型對應套數（TSA 預設 A=12、B=5、B7=0；KHH A=15、B=6、B7=0；RMQ A=2、B=2、B7=0）</td></tr>
+              <tr><td><code>裝載需求量</code></td><td>裝載量 × 裝載套數</td></tr>
+              <tr><td><code>月銷需求量</code></td><td>各月銷售量平均（四捨五入）</td></tr>
+              <tr><td><code>追加需求量</code></td><td>月銷需求量 × 1.5</td></tr>
+              <tr><td><code>待移倉量</code></td><td>MAX(裝載需求量 + 月銷需求量 + 追加需求量 − 庫存數, 0)，依成箱規定無條件進位；加總後作為 TPE 移出量</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+      </div>
+    </details>
 
     <p style="text-align:center;color:var(--text-secondary);font-size:0.85rem;margin-top:1rem;">Create by Peter (Update: 2026/04/09)</p>
     <script src="cal-app.js?v=3"></script>
